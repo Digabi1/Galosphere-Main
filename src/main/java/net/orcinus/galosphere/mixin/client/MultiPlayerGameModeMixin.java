@@ -2,7 +2,9 @@ package net.orcinus.galosphere.mixin.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
 import net.orcinus.galosphere.api.SpectreBoundSpyglass;
+import net.orcinus.galosphere.entities.SpectatorVision;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -19,7 +21,10 @@ public class MultiPlayerGameModeMixin {
 
     @Inject(at = @At("HEAD"), method = "hasExperience", cancellable = true)
     private void GE$hasExperience(CallbackInfoReturnable<Boolean> cir) {
-        Optional.ofNullable(this.minecraft.player).filter(SpectreBoundSpyglass.class::isInstance).map(SpectreBoundSpyglass.class::cast).filter(SpectreBoundSpyglass::isUsingSpectreBoundedSpyglass).ifPresent(localPlayer -> cir.setReturnValue(false));
+        LocalPlayer localPlayer = this.minecraft.player;
+        if ((localPlayer instanceof SpectreBoundSpyglass spectreBoundSpyglass && spectreBoundSpyglass.isUsingSpectreBoundedSpyglass()) || Minecraft.getInstance().getCameraEntity() instanceof SpectatorVision) {
+            cir.setReturnValue(false);
+        }
     }
 
 }

@@ -346,7 +346,6 @@ public class SpectreEntity extends Animal implements FlyingAnimal, BottlePickabl
 
     private void copyPlayerRotation(Player player) {
         this.setYRot(player.getYRot());
-        this.yRotO = this.getYRot();
         this.setXRot(player.getXRot() * 0.5F);
         this.setRot(this.getYRot(), this.getXRot());
         this.yBodyRot = this.getYRot();
