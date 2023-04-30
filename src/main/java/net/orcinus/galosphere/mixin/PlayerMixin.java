@@ -1,5 +1,9 @@
 package net.orcinus.galosphere.mixin;
 
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -11,11 +15,15 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BannerItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ProjectileWeaponItem;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.orcinus.galosphere.api.BannerAttachable;
+import net.orcinus.galosphere.api.SpectreBoundSpyglass;
 import net.orcinus.galosphere.config.GalosphereConfig;
+import net.orcinus.galosphere.entities.SpectatorVision;
 import net.orcinus.galosphere.init.GItems;
 import net.orcinus.galosphere.util.BannerRendererUtil;
 import org.spongepowered.asm.mixin.Mixin;
@@ -25,6 +33,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Player.class)
 public class PlayerMixin {
+
+    @Inject(at = @At("HEAD"), method = "blockActionRestricted", cancellable = true)
+    private void G$blockActionRestricted(Level level, BlockPos blockPos, GameType gameType, CallbackInfoReturnable<Boolean> cir) {
+        if (this.isSpectatorVision()) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    @Environment(EnvType.CLIENT)
+    private boolean isSpectatorVision() {
+        return Minecraft.getInstance().getCameraEntity() instanceof SpectatorVision;
+    }
 
     @Inject(at = @At("TAIL"), method = "isScoping", cancellable = true)
     private void GE$isScoping(CallbackInfoReturnable<Boolean> cir) {

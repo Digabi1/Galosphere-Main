@@ -2,8 +2,11 @@ package net.orcinus.galosphere.entities;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -16,11 +19,12 @@ import net.minecraft.world.level.material.Material;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.orcinus.galosphere.api.SpectreBoundSpyglass;
 import net.orcinus.galosphere.init.GEntityTypes;
 import net.orcinus.galosphere.init.GItems;
+import net.orcinus.galosphere.init.GNetwork;
 import net.orcinus.galosphere.init.GSoundEvents;
 import net.orcinus.galosphere.mixin.access.FireworkRocketEntityAccessor;
+import org.jetbrains.annotations.Nullable;
 
 public class SpectreFlare extends FireworkRocketEntity {
     public SpectreFlare(EntityType<? extends SpectreFlare> type, Level world) {
@@ -31,20 +35,20 @@ public class SpectreFlare extends FireworkRocketEntity {
         super(world, stack, entity, x, y, z, shotAtAngle);
     }
 
-    public SpectreFlare(Level level, @org.jetbrains.annotations.Nullable Entity entity, double d, double e, double f, ItemStack itemStack) {
+    public SpectreFlare(Level level, @Nullable Entity entity, double d, double e, double f, ItemStack itemStack) {
         this(level, d, e, f, itemStack);
         this.setOwner(entity);
     }
 
     public SpectreFlare(Level level, double d, double e, double f, ItemStack itemStack) {
-        super(GEntityTypes.GLOW_FLARE, level);
+        super(GEntityTypes.SPECTRE_FLARE, level);
         ((FireworkRocketEntityAccessor)this).setLife(0);
         this.setPos(d, e, f);
         if (!itemStack.isEmpty() && itemStack.hasTag()) {
             this.entityData.set(FireworkRocketEntityAccessor.getDATA_ID_FIREWORKS_ITEM(), itemStack.copy());
         }
         this.setDeltaMovement(this.random.triangle(0.0, 0.002297), 0.05, this.random.triangle(0.0, 0.002297));
-        ((FireworkRocketEntityAccessor) this).setLifeTime(400);
+        ((FireworkRocketEntityAccessor) this).setLifeTime(100);
     }
 
     public SpectreFlare(Level level, ItemStack itemStack, double d, double e, double f, boolean bl) {
@@ -56,12 +60,7 @@ public class SpectreFlare extends FireworkRocketEntity {
     public void tick() {
         super.tick();
         if (!this.level.isClientSide && ((FireworkRocketEntityAccessor)this).getLife() > ((FireworkRocketEntityAccessor)this).getLifetime()) {
-            if (this.getOwner() instanceof ServerPlayer serverPlayer) {
-                SpectatorVision spectatorVision = SpectatorVision.create(this.level, this.position(), 120);
-                spectatorVision.setManipulatorUUID(serverPlayer.getUUID());
-                serverPlayer.playNotifySound(GSoundEvents.SPECTRE_MANIPULATE_BEGIN, getSoundSource(), 1, 1);
-                this.level.addFreshEntity(spectatorVision);
-            }
+            this.spawnSpectatorVision(this.position());
             this.level.broadcastEntityEvent(this, (byte)17);
             this.gameEvent(GameEvent.EXPLODE, this.getOwner());
             this.discard();
@@ -79,30 +78,34 @@ public class SpectreFlare extends FireworkRocketEntity {
 
     @Override
     protected void onHitBlock(BlockHitResult result) {
-        if (this.checkIfSpectating()) {
-            this.discard();
-            return;
-        }
         if (!this.level.isClientSide()) {
             BlockPos hitPos = result.getBlockPos();
             BlockPos placePos = hitPos.relative(result.getDirection());
             Material material = this.level.getBlockState(placePos).getMaterial();
             if (this.level.getBlockState(hitPos).isCollisionShapeFullBlock(this.level, hitPos) && (material != Material.LAVA || this.level.isStateAtPosition(placePos, DripstoneUtils::isEmptyOrWater))) {
-                Vec3 vec3 = Vec3.atCenterOf(placePos);
-                if (this.getOwner() instanceof ServerPlayer serverPlayer) {
-                    SpectatorVision spectatorVision = SpectatorVision.create(this.level, vec3, 120);
-                    spectatorVision.setManipulatorUUID(serverPlayer.getUUID());
-                    serverPlayer.playNotifySound(GSoundEvents.SPECTRE_MANIPULATE_BEGIN, getSoundSource(), 1, 1);
-                    this.level.addFreshEntity(spectatorVision);
-                }
+                this.spawnSpectatorVision(Vec3.atCenterOf(placePos));
             }
             this.discard();
         }
     }
 
+    private void spawnSpectatorVision(Vec3 vec3) {
+        if (this.getOwner() instanceof ServerPlayer serverPlayer) {
+            if (!this.isCameraEntitySpectatorVision()) {
+                SpectatorVision spectatorVision = SpectatorVision.create(this.level, vec3, serverPlayer, 120);
+                serverPlayer.playNotifySound(GSoundEvents.SPECTRE_MANIPULATE_BEGIN, getSoundSource(), 1, 1);
+                this.level.addFreshEntity(spectatorVision);
+                FriendlyByteBuf buf = PacketByteBufs.create();
+                buf.writeUUID(serverPlayer.getUUID());
+                buf.writeInt(spectatorVision.getId());
+                ServerPlayNetworking.send(serverPlayer, GNetwork.SEND_PERSPECTIVE, buf);
+            }
+        }
+    }
+
     @Environment(EnvType.CLIENT)
-    public boolean checkIfSpectating() {
-        return Minecraft.getInstance().player instanceof SpectreBoundSpyglass spectreBoundSpyglass && Minecraft.getInstance().getCameraEntity() instanceof SpectatorVision;
+    private boolean isCameraEntitySpectatorVision() {
+        return Minecraft.getInstance().getCameraEntity() instanceof SpectatorVision;
     }
 
     @Override

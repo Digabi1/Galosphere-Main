@@ -2,14 +2,11 @@ package net.orcinus.galosphere;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.renderer.item.ClampedItemPropertyFunction;
@@ -20,7 +17,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.orcinus.galosphere.api.SpectreBoundSpyglass;
 import net.orcinus.galosphere.client.gui.CombustionTableScreen;
 import net.orcinus.galosphere.client.model.SparkleModel;
 import net.orcinus.galosphere.client.model.SpecterpillarModel;
@@ -36,10 +32,9 @@ import net.orcinus.galosphere.client.renderer.SpectatorVisionRenderer;
 import net.orcinus.galosphere.client.renderer.SpecterpillarRenderer;
 import net.orcinus.galosphere.client.renderer.SpectreFlareEntityRenderer;
 import net.orcinus.galosphere.client.renderer.SpectreRenderer;
-import net.orcinus.galosphere.entities.SpectatorVision;
-import net.orcinus.galosphere.entities.SpectreEntity;
 import net.orcinus.galosphere.init.GBlocks;
 import net.orcinus.galosphere.init.GEntityTypes;
+import net.orcinus.galosphere.init.GEvents;
 import net.orcinus.galosphere.init.GItems;
 import net.orcinus.galosphere.init.GMenuTypes;
 import net.orcinus.galosphere.init.GModelLayers;
@@ -93,21 +88,10 @@ public class GalosphereClient implements ClientModInitializer {
         EntityModelLayerRegistry.registerModelLayer(GModelLayers.STERLING_HELMET, SterlingArmorModel::createBodyLayer);
 
         GNetwork.init();
-
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            LocalPlayer player = client.player;
-            Entity camera = client.getCameraEntity();
-            if (player != null && (camera instanceof SpectreBoundSpyglass spectreBoundSpyglass && spectreBoundSpyglass.isUsingSpectreBoundedSpyglass())) {
-                KeyMapping.releaseAll();
-                player.setDeltaMovement(player.getDeltaMovement().multiply(0, 1, 0));
-                player.xxa = 0.0F;
-                player.zza = 0.0F;
-                player.setJumping(false);
-                player.setSprinting(false);
-            }
-        });
+        GEvents.clientInit();
 
         ItemProperties.register(Items.CROSSBOW, Galosphere.id("glow_flare"), (stack, world, entity, i) -> entity != null && CrossbowItem.isCharged(stack) && CrossbowItem.containsChargedProjectile(stack, GItems.GLOW_FLARE) ? 1 : 0);
+        ItemProperties.register(Items.CROSSBOW, Galosphere.id("spectre_flare"), (stack, world, entity, i) -> entity != null && CrossbowItem.isCharged(stack) && CrossbowItem.containsChargedProjectile(stack, GItems.SPECTRE_FLARE) ? 1 : 0);
         ItemProperties.register(GItems.BAROMETER, Galosphere.id("weather_level"), new ClampedItemPropertyFunction() {
             private double rotation;
             private int ticksBeforeChange;

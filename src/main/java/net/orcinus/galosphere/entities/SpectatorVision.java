@@ -5,7 +5,6 @@ import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
@@ -23,15 +22,16 @@ import net.minecraft.world.phys.Vec3;
 import net.orcinus.galosphere.api.SpectreBoundSpyglass;
 import net.orcinus.galosphere.init.GEntityTypes;
 import net.orcinus.galosphere.init.GNetwork;
+import net.orcinus.galosphere.init.GSoundEvents;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
 import java.util.UUID;
 
-public class SpectatorVision extends Entity implements SpectreBoundSpyglass {
+public class SpectatorVision extends Entity {
     private static final EntityDataAccessor<Optional<UUID>> MANIPULATOR = SynchedEntityData.defineId(SpectatorVision.class, EntityDataSerializers.OPTIONAL_UUID);
     private static final EntityDataAccessor<Integer> PHASE = SynchedEntityData.defineId(SpectatorVision.class, EntityDataSerializers.INT);
-    private int spectatingTicks;
+    private static final EntityDataAccessor<Integer> SPECTATING_TICKS = SynchedEntityData.defineId(SpectatorVision.class, EntityDataSerializers.INT);
 
     public SpectatorVision(Level level) {
         super(GEntityTypes.SPECTATOR_VISION, level);
@@ -45,63 +45,67 @@ public class SpectatorVision extends Entity implements SpectreBoundSpyglass {
     protected void defineSynchedData() {
         this.entityData.define(MANIPULATOR, Optional.empty());
         this.entityData.define(PHASE, 0);
+        this.entityData.define(SPECTATING_TICKS, 0);
     }
 
     @Override
     public void tick() {
         super.tick();
-        UUID manipulatorUUID = this.getManipulatorUUID();
-        Optional<Player> player = Optional.ofNullable(manipulatorUUID).map(this.level::getPlayerByUUID);
-        if (!this.level.isClientSide) {
-            player.ifPresent(this::handlePerspective);
-        }
         if (!this.isRemoved()) {
-            player.ifPresent(this::copyPlayerRotation);
+            this.travel();
+            int spectatableTime = this.getSpectatableTime();
+            if (spectatableTime > 0) {
+                this.setSpectatableTime(spectatableTime - 1);
+            }
+            if (this.getPhase() < 12 && this.tickCount % 5 == 0) {
+                this.setPhase(this.getPhase() + 1);
+            }
+            if (!this.level.isClientSide() || this.matchesClientPlayerUUID()) {
+                this.entityData.get(MANIPULATOR).ifPresent(this::manualControl);
+            }
         }
     }
 
-    @Environment(EnvType.CLIENT)
-    public boolean matchesClientPlayerUUID() {
-        return Minecraft.getInstance().player != null && Minecraft.getInstance().player.getUUID().equals(this.getManipulatorUUID());
+    private void manualControl(UUID uuid) {
+        Player player = this.level.getPlayerByUUID(uuid);
+        if (player != null) {
+            player.xxa = 0.0F;
+            player.zza = 0.0F;
+            player.setJumping(false);
+            if (!this.level.isClientSide && (player.isShiftKeyDown() || this.getSpectatableTime() == 0)) {
+                ((SpectreBoundSpyglass)player).setUsingSpectreBoundedSpyglass(false);
+                player.playNotifySound(GSoundEvents.SPECTRE_MANIPULATE_END, getSoundSource(), 1, 1);
+                this.setManipulatorUUID(null);
+                if (player instanceof ServerPlayer serverPlayer) {
+                    FriendlyByteBuf buf = PacketByteBufs.create();
+                    buf.writeUUID(player.getUUID());
+                    ServerPlayNetworking.send(serverPlayer, GNetwork.RESET_PERSPECTIVE, buf);
+                }
+                this.kill();
+            }
+        }
+        if (!this.level.isClientSide() && player == null) {
+            this.entityData.set(MANIPULATOR, Optional.empty());
+        }
     }
 
-    @Environment(EnvType.CLIENT)
-    public boolean checkIfSpectating() {
-        return Minecraft.getInstance().player instanceof SpectreBoundSpyglass spectreBoundSpyglass && spectreBoundSpyglass.isUsingSpectreBoundedSpyglass();
+    public void travel() {
+        if (this.getManipulatorUUID() != null) {
+            this.entityData.get(MANIPULATOR).map(this.level::getPlayerByUUID).ifPresent(this::copyPlayerRotation);
+        }
     }
 
     private void copyPlayerRotation(Player player) {
-        this.setYRot(player.getYRot());
+        this.setYRot(player.getYRot() * 0.5F);
         this.setXRot(player.getXRot() * 0.5F);
         this.setRot(this.getYRot(), this.getXRot());
+        this.setYBodyRot(this.getYRot());
+        this.setYHeadRot(this.getYRot());
     }
 
-    private void handlePerspective(Player player) {
-        if (this.getPhase() < 12 && this.tickCount % 5 == 0) {
-            this.setPhase(this.getPhase() + 1);
-        }
-        if (this.getSpectatableTime() > 0) {
-            this.setSpectatableTime(this.getSpectatableTime() - 1);
-            this.sendPerspective(player, this.getId());
-        } else {
-            this.resetPerspective(player);
-            this.discard();
-        }
-    }
-
-    private void sendPerspective(Player player, int Id) {
-        if (player instanceof ServerPlayer serverPlayer) {
-            FriendlyByteBuf buf = PacketByteBufs.create();
-            buf.writeUUID(player.getUUID());
-            buf.writeInt(Id);
-            ServerPlayNetworking.send(serverPlayer, GNetwork.SEND_PERSPECTIVE, buf);
-        }
-    }
-
-    private void resetPerspective(Player player) {
-        FriendlyByteBuf buf = PacketByteBufs.create();
-        buf.writeUUID(player.getUUID());
-        ServerPlayNetworking.send((ServerPlayer) player, GNetwork.RESET_PERSPECTIVE, buf);
+    @Environment(EnvType.CLIENT)
+    private boolean matchesClientPlayerUUID() {
+        return Minecraft.getInstance().player != null && Minecraft.getInstance().player.getUUID().equals(this.getManipulatorUUID());
     }
 
     @Override
@@ -151,28 +155,20 @@ public class SpectatorVision extends Entity implements SpectreBoundSpyglass {
         return new ClientboundAddEntityPacket(this);
     }
 
-    public static SpectatorVision create(Level world, Vec3 blockPos, int ticks) {
+    public static SpectatorVision create(Level world, Vec3 blockPos, ServerPlayer serverPlayer, int ticks) {
         SpectatorVision spectatorVision = new SpectatorVision(world);
         spectatorVision.moveTo(blockPos.x, blockPos.y, blockPos.z);
         spectatorVision.setSpectatableTime(ticks);
+        spectatorVision.setManipulatorUUID(serverPlayer.getUUID());
         return spectatorVision;
     }
 
     public int getSpectatableTime() {
-        return this.spectatingTicks;
+        return this.entityData.get(SPECTATING_TICKS);
     }
 
     public void setSpectatableTime(int spectatableTime) {
-        this.spectatingTicks = spectatableTime;
-    }
-
-    @Override
-    public boolean isUsingSpectreBoundedSpyglass() {
-        return this.isAlive() && this.getManipulatorUUID() != null;
-    }
-
-    @Override
-    public void setUsingSpectreBoundedSpyglass(boolean usingSpectreBoundedSpyglass) {
+        this.entityData.set(SPECTATING_TICKS, spectatableTime);
     }
 
 }

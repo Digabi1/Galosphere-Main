@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.orcinus.galosphere.api.SpectreBoundSpyglass;
+import net.orcinus.galosphere.entities.SpectatorVision;
 import net.orcinus.galosphere.entities.SpectreEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -33,7 +34,8 @@ public class EntityMixin {
 
     @Environment(EnvType.CLIENT)
     private boolean isFirstPerspective() {
-        return Minecraft.getInstance().options.getCameraType().isFirstPerson() && Minecraft.getInstance().getCameraEntity() instanceof SpectreEntity;
+        Entity cameraEntity = Minecraft.getInstance().getCameraEntity();
+        return Minecraft.getInstance().options.getCameraType().isFirstPerson() && (cameraEntity instanceof SpectreEntity || cameraEntity instanceof SpectatorVision);
     }
 
 }

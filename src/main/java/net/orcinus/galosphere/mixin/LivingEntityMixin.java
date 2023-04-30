@@ -1,5 +1,8 @@
 package net.orcinus.galosphere.mixin;
 
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -19,6 +22,7 @@ import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.orcinus.galosphere.api.BannerAttachable;
 import net.orcinus.galosphere.api.GoldenBreath;
 import net.orcinus.galosphere.api.SpectreBoundSpyglass;
+import net.orcinus.galosphere.entities.SpectatorVision;
 import net.orcinus.galosphere.entities.SpectreEntity;
 import net.orcinus.galosphere.init.GEntityTypeTags;
 import net.orcinus.galosphere.init.GItems;
@@ -59,6 +63,11 @@ public class LivingEntityMixin implements BannerAttachable, GoldenBreath, Spectr
         this.setBanner(ItemStack.of(tag.getCompound("BannerStack")));
         this.setGoldenAirSupply(tag.getFloat("GoldenAirSupply"));
         this.setUsingSpectreBoundedSpyglass(tag.getBoolean("UsingSpectreBoundedSpyglass"));
+    }
+
+    @Environment(EnvType.CLIENT)
+    private boolean checkCorrelation() {
+        return Minecraft.getInstance().getCameraEntity() instanceof SpectatorVision;
     }
 
     @Inject(at = @At("HEAD"), method = "tick")

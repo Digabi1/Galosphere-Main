@@ -6,6 +6,8 @@ import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
 import java.util.Optional;
@@ -20,14 +22,26 @@ public class SendPerspectivePacket implements ClientPlayNetworking.PlayChannelHa
         client.execute(() -> {
             Level world = client.level;
             if (world != null) {
-                Optional.ofNullable(world.getPlayerByUUID(uuid)).filter(player -> player.equals(client.player)).flatMap(player -> Optional.ofNullable(client.level.getEntity(id))).ifPresent(entity -> {
-                    if (client.getCameraEntity() != entity) {
-                        client.setCameraEntity(entity);
-                        if (!client.options.getCameraType().isFirstPerson()) {
-                            client.options.setCameraType(CameraType.FIRST_PERSON);
+                Player player = world.getPlayerByUUID(uuid);
+                if (player != null && player.equals(client.player)) {
+                    Entity e = client.level.getEntity(id);
+                    if (e != null) {
+                        if (client.getCameraEntity() != e) {
+                            client.setCameraEntity(e);
+                            if (!client.options.getCameraType().isFirstPerson()) {
+                                client.options.setCameraType(CameraType.FIRST_PERSON);
+                            }
                         }
                     }
-                });
+                }
+//                Optional.ofNullable(world.getPlayerByUUID(uuid)).filter(player -> player.equals(client.player)).flatMap(player -> Optional.ofNullable(client.level.getEntity(id))).ifPresent(entity -> {
+//                    if (client.getCameraEntity() != entity) {
+//                        client.setCameraEntity(entity);
+//                        if (!client.options.getCameraType().isFirstPerson()) {
+//                            client.options.setCameraType(CameraType.FIRST_PERSON);
+//                        }
+//                    }
+//                });
             }
         });
     }
