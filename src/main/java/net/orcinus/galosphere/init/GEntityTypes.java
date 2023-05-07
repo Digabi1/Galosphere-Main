@@ -10,12 +10,12 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.orcinus.galosphere.Galosphere;
-import net.orcinus.galosphere.entities.SpectatorVision;
-import net.orcinus.galosphere.entities.SpecterpillarEntity;
-import net.orcinus.galosphere.entities.SpectreEntity;
 import net.orcinus.galosphere.entities.GlowFlareEntity;
 import net.orcinus.galosphere.entities.SilverBombEntity;
 import net.orcinus.galosphere.entities.SparkleEntity;
+import net.orcinus.galosphere.entities.SpectatorVision;
+import net.orcinus.galosphere.entities.SpecterpillarEntity;
+import net.orcinus.galosphere.entities.SpectreEntity;
 import net.orcinus.galosphere.entities.SpectreFlare;
 
 public class GEntityTypes {
@@ -36,6 +36,7 @@ public class GEntityTypes {
         Util.make(ImmutableMap.<EntityType<? extends LivingEntity>, AttributeSupplier.Builder>builder(), map -> {
             map.put(GEntityTypes.SPARKLE, SparkleEntity.createAttributes());
             map.put(GEntityTypes.SPECTRE, SpectreEntity.createAttributes());
+            map.put(GEntityTypes.SPECTATOR_VISION, SpectatorVision.createAttributes());
             map.put(GEntityTypes.SPECTERPILLAR, SpecterpillarEntity.createAttributes());
         }).build().forEach(FabricDefaultAttributeRegistry::register);
     }
