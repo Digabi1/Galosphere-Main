@@ -138,7 +138,7 @@ public class LichenMushroomFeature extends Feature<NoneFeatureConfiguration> {
     }
 
     private static boolean canGenerate(BlockState state) {
-        return state.is(BlockTags.REPLACEABLE) || state.isAir() || state.is(Blocks.WATER) || state.is(GBlocks.BOWL_LICHEN);
+        return state.canBeReplaced() || state.isAir() || state.is(Blocks.WATER) || state.is(GBlocks.BOWL_LICHEN);
     }
 
     private static void generateDefaultLichenMushroom(WorldGenLevel world, BlockPos blockPos, int radius, int stemHeight, HashSet<BlockPos> set) {
