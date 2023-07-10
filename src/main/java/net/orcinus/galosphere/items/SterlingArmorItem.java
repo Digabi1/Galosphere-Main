@@ -51,7 +51,7 @@ public class SterlingArmorItem extends ArmorItem {
 
         @Override
         public int getDefenseForType(Type type) {
-            int[] slots = new int[]{1, 3, 4, 1};
+            int[] slots = new int[]{2, 5, 4, 1};
             return slots[type.getSlot().getIndex()];
         }
 
